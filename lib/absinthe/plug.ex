@@ -74,6 +74,7 @@ defmodule Absinthe.Plug do
     json_codec: atom | {atom, Keyword.t},
     pipeline: {Module.t, function_name},
     no_query_message: binary,
+    document_providers: [Absinthe.Plug.DocumentProvider.document_provider_spec]
   ]
 
   @doc """
@@ -87,6 +88,7 @@ defmodule Absinthe.Plug do
     no_query_message = Keyword.get(opts, :no_query_message, "No query document supplied")
 
     pipeline = Keyword.get(opts, :pipeline, {__MODULE__, :default_pipeline})
+    document_providers = Keyword.get(opts, :document_providers, {__MODULE__, :default_document_providers})
 
     json_codec = case Keyword.get(opts, :json_codec, Poison) do
       module when is_atom(module) -> %{module: module, opts: []}
@@ -95,8 +97,14 @@ defmodule Absinthe.Plug do
 
     schema_mod = opts |> get_schema
 
-    %{adapter: adapter, schema_mod: schema_mod, context: context, json_codec: json_codec,
-      pipeline: pipeline, no_query_message: no_query_message}
+    %{
+      adapter: adapter,
+      schema_mod: schema_mod,
+      context: context,
+      json_codec: json_codec,
+      pipeline: pipeline,
+      document_providers: document_providers,
+      no_query_message: no_query_message}
   end
 
   defp get_schema(opts) do
@@ -173,8 +181,9 @@ defmodule Absinthe.Plug do
   end
 
   @doc false
-  def prepare(conn, body, %{json_codec: json_codec} = config) do
-    raw_input = Map.get(conn.params, "query", body)
+  def prepare(conn, body, %{json_codec: json_codec, document_providers: providers} = config) do
+
+    raw_input = Absinthe.Plug.DocumentProvider.parse(providers, conn.params, body)
 
     Logger.debug("""
     GraphQL Document:
