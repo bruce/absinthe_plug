@@ -7,7 +7,7 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
     use Absinthe.Plug.DocumentProvider.Compiled
 
     provide "1", """
-    query FooQuery($id: ID!){
+    query FooQuery($id: ID!) {
       item(id: $id) {
         name
       }

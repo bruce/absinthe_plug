@@ -12,19 +12,32 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled.Writer do
     ]
   end
 
+  @doc false
+  def error_message(id, module, messages) do
+    messages = List.wrap(messages)
+    "\n\n" <> """
+    Could not compile document provider #{module}.
+
+    The following problems were found processing document "#{id}":
+    """ <> Enum.join(Enum.map(messages, &"  - #{&1}"), "\n") <> "\n"
+  end
+
   @spec quoted_lookups(Macro.Env.t) :: Macro.t
   defp quoted_lookups(env) do
     docs = Module.get_attribute(env.module, :absinthe_documents_to_compile)
     compilation_pipeline = Module.get_attribute(env.module, :compilation_pipeline)
     for {id, document_text} <- docs do
-      case Absinthe.Pipeline.run(document_text, compilation_pipeline) do
+      pipeline = compilation_pipeline ++ [
+        {Absinthe.Plug.DocumentProvider.Compiled.Check, id: id, module: env.module}
+      ]
+      case Absinthe.Pipeline.run(document_text, pipeline) do
         {:ok, result, _} ->
           document = Macro.escape(result)
           quote do
             def __document_provider_doc__(unquote(id)), do: unquote(document)
           end
         {:error, message, _} ->
-          raise ~s(Error compiling document "#{id}" for document provider #{env.module}: #{message})
+          raise error_message(id, env.module, message)
       end
     end
   end
