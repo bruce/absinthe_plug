@@ -74,7 +74,7 @@ defmodule Absinthe.Plug do
     json_codec: atom | {atom, Keyword.t},
     pipeline: {Module.t, function_name},
     no_query_message: binary,
-    document_providers: [Absinthe.Plug.DocumentProvider.document_provider_spec]
+    document_providers: [Absinthe.Plug.DocumentProvider.config_entry]
   ]
 
   @doc """
@@ -99,12 +99,13 @@ defmodule Absinthe.Plug do
 
     %{
       adapter: adapter,
-      schema_mod: schema_mod,
       context: context,
-      json_codec: json_codec,
-      pipeline: pipeline,
       document_providers: document_providers,
-      no_query_message: no_query_message}
+      json_codec: json_codec,
+      no_query_message: no_query_message,
+      pipeline: pipeline,
+      schema_mod: schema_mod,
+    }
   end
 
   defp get_schema(opts) do
@@ -150,112 +151,58 @@ defmodule Absinthe.Plug do
   end
 
   @doc false
-  def execute(conn, config)do
-    {conn, body} = load_body_and_params(conn)
-
-    result = with {:ok, input, opts} <- prepare(conn, body, config),
-    {:ok, input} <- validate_input(input, config.no_query_message),
-    pipeline <- setup_pipeline(conn, config, opts),
-    {:ok, absinthe_result, _} <- Absinthe.Pipeline.run(input, pipeline) do
-      {:ok, absinthe_result}
+  def execute(conn, config) do
+    with {:ok, input} <- Absinthe.Plug.Input.parse(conn, config),
+         {:ok, input} <- ensure_document(input, config) do
+      run_input(input, conn)
+    else
+      result ->
+        {conn, result}
     end
-
-    {conn, result}
   end
 
-  def setup_pipeline(conn, config, opts) do
-    private = conn.private[:absinthe] || %{}
-    private = Map.put(private, :http_method, conn.method)
-    config = Map.put(config, :conn_private, private)
-
-    {module, fun} = config.pipeline
-    apply(module, fun, [config, opts])
+  defp ensure_document(%{document: nil}, config) do
+    {:input_error, config.no_query_message}
+  end
+  defp ensure_document(input, _) do
+    {:ok, input}
   end
 
-  def default_pipeline(config, opts) do
+  defp run_input(input, conn) do
+    case Absinthe.Pipeline.run(input.document, input.configured_pipeline) do
+      {:ok, result, _} ->
+        {conn, {:ok, result}}
+      other ->
+        {conn, other}
+    end
+  end
+
+  #
+  # PIPELINE
+  #
+
+  @doc false
+  def default_pipeline(config, input_for_pipeline) do
     config.schema_mod
-    |> Absinthe.Pipeline.for_document(opts)
+    |> Absinthe.Pipeline.for_document(input_for_pipeline)
     |> Absinthe.Pipeline.insert_after(Absinthe.Phase.Document.CurrentOperation,
       {Absinthe.Plug.Validation.HTTPMethod, method: config.conn_private.http_method}
     )
   end
 
+  #
+  # DOCUMENT PROVIDERS
+  #
+
   @doc false
-  def prepare(conn, body, %{json_codec: json_codec, document_providers: providers} = config) do
-
-    raw_input = Absinthe.Plug.DocumentProvider.parse(providers, conn.params, body)
-
-    Logger.debug("""
-    GraphQL Document:
-    #{raw_input}
-    """)
-
-    variables = Map.get(conn.params, "variables") || "{}"
-    operation_name = conn.params["operationName"] |> decode_operation_name
-
-    context = build_context(conn, config)
-
-    with {:ok, variables} <- decode_variables(variables, json_codec) do
-        absinthe_opts = [
-          variables: variables,
-          context: context,
-          root_value: (conn.private[:absinthe][:root_value] || %{}),
-          operation_name: operation_name,
-        ]
-        {:ok, raw_input, absinthe_opts}
-    end
+  @spec default_document_providers(map) :: [Absinthe.Plug.DocumentProvider.simple_config_entry]
+  def default_document_providers(_) do
+    [Absinthe.Plug.DocumentProvider.Default]
   end
 
-  defp build_context(conn, config) do
-    config.context
-    |> Map.merge(conn.private[:absinthe][:context] || %{})
-    |> Map.merge(uploaded_files(conn))
-  end
-
-  defp uploaded_files(conn) do
-    files =
-      conn.params
-      |> Enum.filter(&match?({_, %Plug.Upload{}}, &1))
-      |> Map.new
-
-    %{
-      __absinthe_plug__: %{uploads: files}
-    }
-  end
-
-  defp validate_input(nil, no_query_message), do: {:input_error, no_query_message}
-  defp validate_input("", no_query_message), do: {:input_error, no_query_message}
-  defp validate_input(doc, _), do: {:ok, doc}
-
-  # GraphQL.js treats an empty operation name as no operation name.
-  defp decode_operation_name(""), do: nil
-  defp decode_operation_name(name), do: name
-
-  defp decode_variables(%{} = variables, _), do: {:ok, variables}
-  defp decode_variables("", _), do: {:ok, %{}}
-  defp decode_variables("null", _), do: {:ok, %{}}
-  defp decode_variables(nil, _), do: {:ok, %{}}
-  defp decode_variables(variables, codec) do
-    case codec.module.decode(variables) do
-      {:ok, results} ->
-        {:ok, results}
-      _ ->
-        {:input_error, "The variable values could not be decoded"}
-    end
-  end
-
-  def load_body_and_params(%{body_params: %{"query" => _}}=conn) do
-    {fetch_query_params(conn), ""}
-  end
-  def load_body_and_params(conn) do
-    case get_req_header(conn, "content-type") do
-      ["application/graphql"] ->
-        {:ok, body, conn} = read_body(conn)
-        {fetch_query_params(conn), body}
-      _ ->
-        {conn, ""}
-    end
-  end
+  #
+  # SERIALIZATION
+  #
 
   @doc false
   def json(conn, status, body, json_codec) do
