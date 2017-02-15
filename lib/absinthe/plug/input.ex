@@ -1,4 +1,5 @@
 defmodule Absinthe.Plug.Input do
+  @moduledoc false
 
   import Plug.Conn
 

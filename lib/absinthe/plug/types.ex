@@ -1,4 +1,6 @@
 defmodule Absinthe.Plug.Types do
+  @moduledoc false
+  
   use Absinthe.Schema.Notation
 
   alias Absinthe.Blueprint
