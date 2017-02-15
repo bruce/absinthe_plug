@@ -2,6 +2,7 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
   use ExUnit.Case, async: true
   use Plug.Test
   alias Absinthe.Plug.TestSchema
+  alias Absinthe.Plug.DocumentProvider.Compiled
 
   defmodule LiteralDocuments do
     use Absinthe.Plug.DocumentProvider.Compiled
@@ -27,6 +28,13 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
 
   end
 
+  @foo_query """
+  query FooQuery($id: ID!) {
+    item(id: $id) {
+      name
+    }
+  }
+  """
   @foo_result ~s({"data":{"item":{"name":"Foo"}}})
 
   test "works using documents provided as literals" do
@@ -49,6 +57,15 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
     |> Absinthe.Plug.call(opts)
 
     assert resp_body == @foo_result
+  end
+
+  test ".get compiled" do
+    assert %Absinthe.Blueprint{} = Compiled.get(LiteralDocuments, "1")
+    assert %Absinthe.Blueprint{} = Compiled.get(LiteralDocuments, "1", :compiled)
+  end
+
+  test ".get source" do
+    assert @foo_query == Compiled.get(LiteralDocuments, "1", :source)
   end
 
   defp plug_parser(conn) do

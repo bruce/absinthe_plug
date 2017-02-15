@@ -2,7 +2,7 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
   @moduledoc """
 
-  Provide pre-compiled documents for retrieval via the "id" parameter.
+  Provide pre-compiled documents for retrieval by looking up a parameter key.
 
   ### Examples
 
@@ -33,9 +33,15 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
       |> Poison.decode!
       |> Map.new(fn {k, v} -> {v, k} end)
 
+  By default, the request parameter that will be used to lookup documents is
+  `"id"`. You can change this by passing a `:key_param` option to `use`, e.g.:
+
+      use Absinthe.Plug.DocumentProvider.Compiled, key_param: "lookup_key"
+
   """
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
+    key_param = Keyword.get(opts, :key_param, "id") |> to_string
     quote do
       @behaviour Absinthe.Plug.DocumentProvider
 
@@ -52,12 +58,12 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
         do_load(input)
       end
 
-      defp do_load(%{params: %{"id" => document_id}} = input) do
-        case __document_provider_doc__(document_id) do
+      defp do_load(%{params: %{unquote(key_param) => document_key}} = input) do
+        case __absinthe_plug_doc__(:compiled, document_key) do
           nil ->
             {:cont, input}
           document ->
-            {:halt, %{input | document: document, document_provider_key: document_id}}
+            {:halt, %{input | document: document, document_provider_key: document_key}}
         end
       end
       defp do_load(input, _) do
@@ -74,7 +80,7 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
       """
       def pipeline(%{pipeline: as_configured}) do
         as_configured
-        |> Absinthe.Pipeline.from(__document_provider_last_compilation_pipeline_phase__)
+        |> Absinthe.Pipeline.from(__absinthe_plug_doc__(:remaining_pipeline))
       end
 
       defoverridable [pipeline: 1]
@@ -135,41 +141,37 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
 
   @doc """
-  Lookup a compiled document by id.
+  Lookup a document by id.
 
   ## Examples
 
-      iex> lookup(CompiledProvider, "provided")
+  Get a compiled document:
+
+      iex> get(CompiledProvider, "provided")
       #Absinthe.Blueprint<>
 
-      iex> lookup(CompiledProvider, "not-provided")
+  With an explicit `:compiled` flag:
+
+      iex> get(CompiledProvider, "provided", :compiled)
+      #Absinthe.Blueprint<>
+
+  Get the source:
+
+      iex> get(CompiledProvider, "provided", :source)
+      "query Item { item { name } }"
+
+  When a value isn't present:
+
+      iex> get(CompiledProvider, "not-provided")
       nil
 
   """
-  @spec lookup(module, String.t) :: nil | Absinthe.Blueprint.t
-  def lookup(compiled_document_provider, id) do
-    compiled_document_provider.__document_provider_doc__(id)
+  @spec get(module, String.t, :compiled | :source) :: nil | Absinthe.Blueprint.t
+  def get(dp, id, format \\ :compiled)
+  def get(dp, id, :compiled) do
+    dp.__absinthe_plug_doc__(:compiled, id)
   end
-
-  @doc ~s"""
-  Lookup the raw text of a compiled document by id.
-
-  ## Examples
-
-      iex> text(CompiledProvider, "provided")
-      \"""
-      query ShowItem($id: ID!) {
-        item(id: $id) { name }
-      }
-      \"""
-
-      iex> text(CompiledProvider, "not-provided")
-      nil
-
-  """
-  @spec text(module, String.t) :: nil | String.t
-  def text(compiled_document_provider, id) do
-    compiled_document_provider.__document_provider_text__(id)
+  def get(dp, id, :source) do
+    dp.__absinthe_plug_doc__(:source, id)
   end
-
 end
