@@ -18,7 +18,7 @@ defmodule Absinthe.Plug.Input do
     :params,
     :root_value,
     :variables,
-    configured_pipeline: [],
+    pipeline: [],
     document: nil,
     document_provider: nil,
     document_provider_key: nil,
@@ -32,9 +32,9 @@ defmodule Absinthe.Plug.Input do
     operation_name: nil | String.t,
     root_value: any,
     variables: map,
-    document_provider: nil | Absinthe.Plug.DocumentProvider.config_entry,
+    document_provider: nil | Absinthe.Plug.DocumentProvider.t,
     document_provider_key: any,
-    configured_pipeline: [Absinthe.Pipeline.t],
+    pipeline: Absinthe.Pipeline.t,
   }
 
   def parse(conn, config) do
@@ -52,7 +52,7 @@ defmodule Absinthe.Plug.Input do
         context: context,
         root_value: root_value
       }
-      |> add_configured_pipeline(conn, config)
+      |> add_pipeline(conn, config)
       |> provide_document(config)
     end
   end
@@ -67,14 +67,9 @@ defmodule Absinthe.Plug.Input do
     {conn, {"", conn.params}}
   end
   def extract_body_and_params(conn) do
-    case get_req_header(conn, "content-type") do
-      ["application/graphql"] ->
-        {:ok, body, conn} = read_body(conn)
-        conn = fetch_query_params(conn)
-        {conn, {body, conn.params}}
-      _ ->
-        {conn, {"", conn.params}}
-    end
+    {:ok, body, conn} = read_body(conn)
+    conn = fetch_query_params(conn)
+    {conn, {body, conn.params}}
   end
 
   #
@@ -120,7 +115,7 @@ defmodule Absinthe.Plug.Input do
   #
 
   defp extract_raw_document(body, params) do
-    raw_document = Map.get(params, "query", body)
+    Map.get(params, "query", body)
     |> normalize_raw_document
   end
 
@@ -178,7 +173,7 @@ defmodule Absinthe.Plug.Input do
   #
 
   @doc false
-  def add_configured_pipeline(input, conn, config) do
+  def add_pipeline(input, conn, config) do
     private = conn.private[:absinthe] || %{}
     private = Map.put(private, :http_method, conn.method)
     config = Map.put(config, :conn_private, private)
@@ -186,8 +181,8 @@ defmodule Absinthe.Plug.Input do
     simplified_input = input |> Map.from_struct |> Keyword.new
 
     {module, fun} = config.pipeline
-    configured_pipeline = apply(module, fun, [config, simplified_input])
-    %{input | configured_pipeline: configured_pipeline}
+    pipeline = apply(module, fun, [config, simplified_input])
+    %{input | pipeline: pipeline}
   end
 
 end

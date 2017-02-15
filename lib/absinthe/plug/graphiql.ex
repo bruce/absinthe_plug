@@ -61,7 +61,7 @@ defmodule Absinthe.Plug.GraphiQL do
 
   defp do_call(conn, %{json_codec: _, interface: interface} = config) do
     with {:ok, input} <- Absinthe.Plug.Input.parse(conn, config),
-         {:ok, absinthe_result, _} <- Absinthe.Pipeline.run(input.document, input.configured_pipeline) do
+         {:ok, absinthe_result, _} <- Absinthe.Pipeline.run(input.document, Absinthe.Plug.DocumentProvider.pipeline(input)) do
       {:ok, absinthe_result, input.variables, input.document || ""}
     end
     |> case do

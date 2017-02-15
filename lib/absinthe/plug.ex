@@ -74,7 +74,7 @@ defmodule Absinthe.Plug do
     json_codec: atom | {atom, Keyword.t},
     pipeline: {Module.t, function_name},
     no_query_message: binary,
-    document_providers: [Absinthe.Plug.DocumentProvider.config_entry]
+    document_providers: [Absinthe.Plug.DocumentProvider.t]
   ]
 
   @doc """
@@ -169,7 +169,7 @@ defmodule Absinthe.Plug do
   end
 
   defp run_input(input, conn) do
-    case Absinthe.Pipeline.run(input.document, input.configured_pipeline) do
+    case Absinthe.Pipeline.run(input.document, Absinthe.Plug.DocumentProvider.pipeline(input)) do
       {:ok, result, _} ->
         {conn, {:ok, result}}
       other ->
@@ -195,7 +195,7 @@ defmodule Absinthe.Plug do
   #
 
   @doc false
-  @spec default_document_providers(map) :: [Absinthe.Plug.DocumentProvider.simple_config_entry]
+  @spec default_document_providers(map) :: [Absinthe.Plug.DocumentProvider.t]
   def default_document_providers(_) do
     [Absinthe.Plug.DocumentProvider.Default]
   end

@@ -1,14 +1,15 @@
 defmodule Absinthe.Plug.DocumentProvider do
 
+  @callback pipeline(Absinthe.Plug.Input.t) :: Absinthe.Pipeline.t
   @callback load({map, Absinthe.Plug.Input.t}, Keyword.t) :: {:cont, Absinthe.Plug.Input.t} | {:error, String.t}
 
-  @type config_entry :: {module, Keyword.t}
-  @type simple_config_entry :: module | config_entry
+  @type with_options :: {module, Keyword.t}
+  @type t :: module | with_options
 
-  @spec process([simple_config_entry], Absinthe.Plug.Input.t) :: {:ok, Absinthe.Plug.Input.t} | {:error, String.t}
-  def process(provider_configs, input) do
-    provider_configs
-    |> normalize_configs
+  @spec process([t], Absinthe.Plug.Input.t) :: {:ok, Absinthe.Plug.Input.t} | {:input_error, String.t}
+  def process(document_providers, input) do
+    document_providers
+    |> normalize
     |> Enum.reduce_while(input, fn {mod, opts} = provider, acc ->
       case mod.load(acc, opts) do
         {:halt, result} ->
@@ -25,13 +26,23 @@ defmodule Absinthe.Plug.DocumentProvider do
     end
   end
 
-  @spec normalize_configs([simple_config_entry]) :: [config_entry]
-  defp normalize_configs(provider_configs) do
-    Enum.map(provider_configs, &normalize_config/1)
+  @doc """
+  Determine the remaining pipeline for input, based on the associated document provider.
+  """
+  @spec pipeline(Absinthe.Plug.Input.t) :: Absinthe.Pipeline.t
+  def pipeline(%{document_provider: {mod, _}} = input) do
+    mod.pipeline(input)
   end
 
-  @spec normalize_config(simple_config_entry) :: config_entry
-  defp normalize_config(config) when is_tuple(config), do: config
-  defp normalize_config(config), do: {config, []}
+  # Normalize plain module references to document providers to the fully declared
+  # configuration that includes a keyword list.
+  @spec normalize([t]) :: [with_options]
+  defp normalize(document_providers) do
+    Enum.map(document_providers, &do_normalize/1)
+  end
+
+  @spec do_normalize(t) :: with_options
+  defp do_normalize(config) when is_tuple(config), do: config
+  defp do_normalize(config), do: {config, []}
 
 end
