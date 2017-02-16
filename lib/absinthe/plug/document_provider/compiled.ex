@@ -1,8 +1,7 @@
 defmodule Absinthe.Plug.DocumentProvider.Compiled do
-
   @moduledoc """
 
-  Provide pre-compiled documents for retrieval by looking up a parameter key.
+  Provide pre-compiled documents for retrieval by request parameter key.
 
   Important: This module shouldn't be used as a document provider itself, but
   as a toolkit to build one. See the examples below.
@@ -43,6 +42,13 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
       use Absinthe.Plug.DocumentProvider.Compiled, key_param: "lookup_key"
 
+ ## Configuring
+
+  You need to configure `Absinthe.Plug` to use any document providers that you create.
+  (Only `Absinthe.Plug.DocumentProviders.Default` is configured by default.)
+
+  See the documentation on `Absinthe.Plug.init/1` for more details. Look for the
+  `:document_providers` option.
   """
 
   defmacro __using__(opts) do

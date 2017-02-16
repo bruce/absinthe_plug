@@ -23,7 +23,7 @@ defmodule Absinthe.Plug.DocumentProvider.Default do
     See, for example, `Absinthe.Plug.DocumentProvider.Compiled`.
   - Remove this document provider from the configuration to disallow ad hoc queries.
 
-  See the documentation for `Absinthe.Plug.init/1` for more details on the
+  See the documentation on `Absinthe.Plug.init/1` for more details on the
   `:document_providers` option.
 
   """
