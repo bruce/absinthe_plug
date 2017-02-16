@@ -94,9 +94,9 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
   end
 
   @doc ~s"""
-  Provide a GraphQL document for a given ID.
+  Provide a GraphQL document for a given key.
 
-  Note that the ID will be coerced to strings to ensure compatibility with the expected request parameter.
+  Note that the key will be coerced to a string to ensure compatibility with the expected request parameter.
 
   For more information, see the module-level documentation.
 
@@ -117,9 +117,9 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
   end
 
   @doc ~s"""
-  Provide multiple GraphQL documents by ID.
+  Provide multiple GraphQL documents by key.
 
-  Note that IDs will be coerced to strings to ensure compatibility with the expected request parameter.
+  Note that keys will be coerced to strings to ensure compatibility with the expected request parameter.
 
   For more information, see the module-level documentation.
 
