@@ -110,9 +110,9 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
   """
   @spec provide(any, String.t) :: Macro.t
-  defmacro provide(id, document_text) do
+  defmacro provide(document_key, document_source) do
     quote do
-      @absinthe_documents_to_compile Map.put(@absinthe_documents_to_compile, to_string(unquote(id)), unquote(document_text))
+      @absinthe_documents_to_compile Map.put(@absinthe_documents_to_compile, to_string(unquote(document_key)), unquote(document_source))
     end
   end
 

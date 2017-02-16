@@ -1,8 +1,49 @@
 defmodule Absinthe.Plug do
   @moduledoc """
-  A plug for using Absinthe
+  A plug for using [Absinthe](https://hex.pm/packages/absinthe) (GraphQL).
 
-  See [The Guides](http://absinthe-graphql.org/guides/plug-phoenix/) for usage details.
+  ## Usage
+
+  Basic Usage:
+
+      plug Plug.Parsers,
+        parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
+        pass: ["*/*"],
+        json_decoder: Poison
+
+      plug Absinthe.Plug,
+        schema: MyApp.Schema
+
+  If you want only `Absinthe.Plug` to serve a particular route, configure your
+  router like:
+
+      plug Plug.Parsers,
+        parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
+        pass: ["*/*"],
+        json_decoder: Poison
+
+      forward "/api", Absinthe.Plug,
+        schema: MyApp.Schema
+
+  To add support for a GraphiQL interface, add a configuration for
+  `Absinthe.Plug.GraphiQL`:
+
+      forward "/graphiql",
+        Absinthe.Plug.GraphiQL,
+        schema: MyApp.Schema,
+
+  ## Included GraphQL Types
+
+  This package includes additional types for use in Absinthe GraphQL schema and
+  type modules.
+
+  See the documentation on `Absinthe.Plug.Types` for more information.
+
+  ## More Information
+
+  For more on configuring `Absinthe.Plug` and how GraphQL requests are made,
+  see [the guide](http://absinthe-graphql.org/guides/plug-phoenix/) at
+  <http://absinthe-graphql.org>.
   """
 
   @behaviour Plug
