@@ -25,6 +25,9 @@ defmodule Absinthe.Plug do
       forward "/api", Absinthe.Plug,
         schema: MyApp.Schema
 
+  See the documentation on `Absinthe.Plug.init/1` and the `Absinthe.Plug.opts`
+  type for information on the available options.
+
   To add support for a GraphiQL interface, add a configuration for
   `Absinthe.Plug.GraphiQL`:
 
@@ -50,21 +53,31 @@ defmodule Absinthe.Plug do
   import Plug.Conn
   require Logger
 
-  @type function_name :: atom
-
+  @typedoc """
+  - `:adapter` -- (Optional) Absinthe adapter to use (default: `Absinthe.Adapter.LanguageConventions`).
+  - `:context` -- (Optional) Initial value for the Absinthe context, available to resolvers. (default: `%{}`).
+  - `:no_query_message` -- (Optional) Message to return to the client if no query is provided (default: "No query document supplied").
+  - `:json_codec` -- (Optional) JSON codec to use (default: `Poison`).
+  - `:pipeline` -- (Optional) `{module, atom}` reference to a 2-arity function that will be called to generate the processing pipeline. (default: `{Absinthe.Plug, :default_pipeline}`).
+  - `:document_providers` -- (Optional) A `{module, atom}` reference to a 1-arity function that will be called to determine the document providers that will be used to process the request. (default: `{Absinthe.Plug, :default_document_providers}`, which configures `Absinthe.Plug.DocumentProvider.Default` as the lone document provider). A simple list of document providers can also be given. See `Absinthe.Plug.DocumentProvider` for more information about document providers, their role in procesing requests, and how you can define and configure your own.
+  - `:schema` -- (Required, if not handled by Mix.Config) The Absinthe schema to use. If a module name is not provided, `Application.get_env(:absinthe, :schema)` will be attempt to find one.
+  """
   @type opts :: [
     schema: atom,
     adapter: atom,
-    path: binary,
     context: map,
     json_codec: atom | {atom, Keyword.t},
-    pipeline: {Module.t, function_name},
+    pipeline: {module, atom},
     no_query_message: binary,
     document_providers: [Absinthe.Plug.DocumentProvider.t]
   ]
 
   @doc """
-  Sets up and validates the Absinthe schema
+  Serve an Absinthe GraphQL schema with the specified options.
+
+  ## Options
+
+  See the documentation for the `Absinthe.Plug.opts` type for details on the available options.
   """
   @spec init(opts :: opts) :: map
   def init(opts) do
@@ -109,6 +122,7 @@ defmodule Absinthe.Plug do
   @doc """
   Parses, validates, resolves, and executes the given Graphql Document
   """
+  @spec call(Plug.Conn.t, map) :: Plug.Conn.t | no_return
   def call(conn, %{json_codec: json_codec} = config) do
     {conn, result} = conn |> execute(config)
 
@@ -137,6 +151,7 @@ defmodule Absinthe.Plug do
   end
 
   @doc false
+  @spec execute(Plug.Conn.t, map) :: {Plug.Conn.t, any}
   def execute(conn, config) do
     with {:ok, request} <- Absinthe.Plug.Request.parse(conn, config),
          {:ok, request} <- ensure_document(request, config) do
@@ -147,6 +162,7 @@ defmodule Absinthe.Plug do
     end
   end
 
+  @spec ensure_document(Absinthe.Plug.Request.t, map) :: {:ok, Absinthe.Plug.Request.t} | {:input_error, String.t}
   defp ensure_document(%{document: nil}, config) do
     {:input_error, config.no_query_message}
   end
@@ -154,6 +170,7 @@ defmodule Absinthe.Plug do
     {:ok, request}
   end
 
+  @spec run_request(Absinthe.Plug.Request.t, Plug.Conn.t) :: {Plug.Conn.t, any}
   defp run_request(request, conn) do
     case Absinthe.Pipeline.run(request.document, Absinthe.Plug.DocumentProvider.pipeline(request)) do
       {:ok, result, _} ->
@@ -168,6 +185,7 @@ defmodule Absinthe.Plug do
   #
 
   @doc false
+  @spec default_pipeline(map, Keyword.t) :: Absinthe.Pipeline.t
   def default_pipeline(config, input_for_pipeline) do
     config.schema_mod
     |> Absinthe.Pipeline.for_document(input_for_pipeline)
@@ -191,6 +209,7 @@ defmodule Absinthe.Plug do
   #
 
   @doc false
+  @spec json(Plug.Conn.t, 200 | 400 | 405 | 500, String.t, map) :: Plug.Conn.t | no_return
   def json(conn, status, body, json_codec) do
     conn
     |> put_resp_content_type("application/json")
