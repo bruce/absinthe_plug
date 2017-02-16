@@ -38,6 +38,7 @@ defmodule Absinthe.Plug.Request do
     pipeline: Absinthe.Pipeline.t,
   }
 
+  @spec parse(Plug.Conn.t, map) :: {:ok, t} | {:input_error, String.t}
   def parse(conn, config) do
     with {conn, {body, params}} <- extract_body_and_params(conn),
                {:ok, variables} <- extract_variables(params, config),
@@ -63,11 +64,12 @@ defmodule Absinthe.Plug.Request do
   # BODY / PARAMS
   #
 
-  def extract_body_and_params(%{body_params: %{"query" => _}} = conn) do
+  @spec extract_body_and_params(Plug.Conn.t) :: {Plug.Conn.t, {String.t, map}}
+  defp extract_body_and_params(%{body_params: %{"query" => _}} = conn) do
     conn = fetch_query_params(conn)
     {conn, {"", conn.params}}
   end
-  def extract_body_and_params(conn) do
+  defp extract_body_and_params(conn) do
     {:ok, body, conn} = read_body(conn)
     conn = fetch_query_params(conn)
     {conn, {body, conn.params}}
@@ -77,12 +79,14 @@ defmodule Absinthe.Plug.Request do
   # OPERATION NAME
   #
 
+  @spec extract_operation_name(map) :: nil | String.t
   defp extract_operation_name(params) do
     params["operationName"]
     |> decode_operation_name
   end
 
   # GraphQL.js treats an empty operation name as no operation name.
+  @spec decode_operation_name(nil | String.t) :: nil | String.t
   defp decode_operation_name(""), do: nil
   defp decode_operation_name(name), do: name
 
@@ -90,6 +94,7 @@ defmodule Absinthe.Plug.Request do
   # VARIABLES
   #
 
+  @spec extract_variables(map, map) :: {:ok, map} | {:input_error, String.t}
   defp extract_variables(params, %{json_codec: json_codec}) do
     Map.get(params, "variables", "{}")
     |> decode_variables(json_codec)
@@ -98,6 +103,7 @@ defmodule Absinthe.Plug.Request do
     {:error, "No json_codec available"}
   end
 
+  @spec decode_variables(any, map) :: {:ok, map} | {:input_error, String.t}
   defp decode_variables(%{} = variables, _), do: {:ok, variables}
   defp decode_variables("", _), do: {:ok, %{}}
   defp decode_variables("null", _), do: {:ok, %{}}
@@ -115,11 +121,13 @@ defmodule Absinthe.Plug.Request do
   # DOCUMENT
   #
 
+  @spec extract_raw_document(nil | String.t, map) :: nil | String.t
   defp extract_raw_document(body, params) do
     Map.get(params, "query", body)
     |> normalize_raw_document
   end
 
+  @spec normalize_raw_document(nil | String.t) :: nil | String.t
   defp normalize_raw_document(""), do: nil
   defp normalize_raw_document(doc), do: doc
 
@@ -127,12 +135,14 @@ defmodule Absinthe.Plug.Request do
   # CONTEXT
   #
 
+  @spec extract_context(Plug.Conn.t, map) :: map
   defp extract_context(conn, config) do
     config.context
     |> Map.merge(conn.private[:absinthe][:context] || %{})
     |> Map.merge(uploaded_files(conn))
   end
 
+  @spec uploaded_files(Plug.Conn.t) :: map
   defp uploaded_files(conn) do
     files =
       conn.params
@@ -150,7 +160,8 @@ defmodule Absinthe.Plug.Request do
   # ROOT VALUE
   #
 
-  def extract_root_value(conn) do
+  @spec extract_root_value(Plug.Conn.t) :: any
+  defp extract_root_value(conn) do
     conn.private[:absinthe][:root_value] || %{}
   end
 
@@ -158,7 +169,7 @@ defmodule Absinthe.Plug.Request do
   # DOCUMENT PROVIDERS
   #
 
-  @doc false
+  @spec calculate_document_providers(map) :: [Absinthe.Plug.DocumentProvider.t]
   defp calculate_document_providers(%{document_providers: {module, fun}} = config) do
     apply(module, fun, [config])
   end
@@ -166,8 +177,18 @@ defmodule Absinthe.Plug.Request do
     List.wrap(simple_value)
   end
 
-  def provide_document(request, config) do
+  @spec ensure_document_providers!([Absinthe.Plug.DocumentProvider.t]) :: [Absinthe.Plug.DocumentProvider.t] | no_return
+  defp ensure_document_providers!([]) do
+    raise "No document providers found to process request"
+  end
+  defp ensure_document_providers!(provided) do
+    provided
+  end
+
+  @spec provide_document(t, map) :: {:ok, t} | {:input_error, String.t}
+  defp provide_document(request, config) do
     calculate_document_providers(config)
+    |> ensure_document_providers!()
     |> Absinthe.Plug.DocumentProvider.process(request)
   end
 
@@ -175,8 +196,8 @@ defmodule Absinthe.Plug.Request do
   # PIPELINE
   #
 
-  @doc false
-  def add_pipeline(request, conn, config) do
+  @spec add_pipeline(t, Plug.Conn.t, map) :: t
+  defp add_pipeline(request, conn, config) do
     private = conn.private[:absinthe] || %{}
     private = Map.put(private, :http_method, conn.method)
     config = Map.put(config, :conn_private, private)

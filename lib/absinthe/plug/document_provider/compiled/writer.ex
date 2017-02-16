@@ -1,5 +1,4 @@
 defmodule Absinthe.Plug.DocumentProvider.Compiled.Writer do
-
   @moduledoc false
 
   defmacro write(env) do
