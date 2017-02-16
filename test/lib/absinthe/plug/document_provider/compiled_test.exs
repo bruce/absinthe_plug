@@ -47,6 +47,17 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
     assert resp_body == @foo_result
   end
 
+  test "works setting document_providers directly" do
+    opts = Absinthe.Plug.init(schema: TestSchema, document_providers: [__MODULE__.LiteralDocuments])
+
+    assert %{status: 200, resp_body: resp_body} = conn(:post, "/", %{"id" => "1", "variables" => %{"id" => "foo"}})
+    |> put_req_header("content-type", "application/graphql")
+    |> plug_parser
+    |> Absinthe.Plug.call(opts)
+
+    assert resp_body == @foo_result
+  end
+
   test "works using documents loaded from an extracted_queries.json" do
     opts = Absinthe.Plug.init(schema: TestSchema, document_providers: {__MODULE__, :extracted})
 

@@ -159,9 +159,11 @@ defmodule Absinthe.Plug.Request do
   #
 
   @doc false
-  defp calculate_document_providers(config) do
-    {module, fun} = config.document_providers
+  defp calculate_document_providers(%{document_providers: {module, fun}} = config) do
     apply(module, fun, [config])
+  end
+  defp calculate_document_providers(%{document_providers: simple_value}) do
+    List.wrap(simple_value)
   end
 
   def provide_document(request, config) do
