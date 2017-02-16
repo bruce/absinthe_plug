@@ -1,4 +1,4 @@
-defmodule Absinthe.Plug.Input do
+defmodule Absinthe.Plug.Request do
   @moduledoc false
 
   import Plug.Conn
@@ -164,9 +164,9 @@ defmodule Absinthe.Plug.Input do
     apply(module, fun, [config])
   end
 
-  def provide_document(input, config) do
+  def provide_document(request, config) do
     calculate_document_providers(config)
-    |> Absinthe.Plug.DocumentProvider.process(input)
+    |> Absinthe.Plug.DocumentProvider.process(request)
   end
 
   #
@@ -174,16 +174,16 @@ defmodule Absinthe.Plug.Input do
   #
 
   @doc false
-  def add_pipeline(input, conn, config) do
+  def add_pipeline(request, conn, config) do
     private = conn.private[:absinthe] || %{}
     private = Map.put(private, :http_method, conn.method)
     config = Map.put(config, :conn_private, private)
 
-    simplified_input = input |> Map.from_struct |> Keyword.new
+    simplified_input = request |> Map.from_struct |> Keyword.new
 
     {module, fun} = config.pipeline
     pipeline = apply(module, fun, [config, simplified_input])
-    %{input | pipeline: pipeline}
+    %{request | pipeline: pipeline}
   end
 
 end

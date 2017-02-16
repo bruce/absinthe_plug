@@ -1,6 +1,5 @@
 defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
-  use ExUnit.Case, async: true
-  use Plug.Test
+  use Absinthe.Plug.TestCase
   alias Absinthe.Plug.TestSchema
   alias Absinthe.Plug.DocumentProvider.Compiled
 
@@ -66,14 +65,6 @@ defmodule Absinthe.Plug.DocumentProvider.CompiledTest do
 
   test ".get source" do
     assert @foo_query == Compiled.get(LiteralDocuments, "1", :source)
-  end
-
-  defp plug_parser(conn) do
-    opts = Plug.Parsers.init(
-      parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
-      json_decoder: Poison
-    )
-    Plug.Parsers.call(conn, opts)
   end
 
   def literal(_) do

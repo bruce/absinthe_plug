@@ -4,9 +4,12 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
   Provide pre-compiled documents for retrieval by looking up a parameter key.
 
+  Important: This module shouldn't be used as a document provider itself, but
+  as a toolkit to build one. See the examples below.
+
   ### Examples
 
-  Define a document provider module and `use` this module:
+  Define a new module and `use Absinthe.Plug.DocumentProvider.Compiled`:
 
       defmodule MyApp.Schema.Documents do
         use Absinthe.Plug.DocumentProvider.Compiled
@@ -15,7 +18,8 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
       end
 
-  You can provide documents as literals within the module, by key, using the `provide/2` macro:
+  You can provide documents as literals within the module, by key, using the
+  `provide/2` macro:
 
       provide "item", "query Item($id: ID!) { item(id: $id) { name } }"
 
@@ -26,8 +30,9 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
         "time" => "{ currentTime }"
       }
 
-  This can be used to support loading queries extracted using Apollo's [persistgraphql](https://github.com/apollographql/persistgraphql) tool
-  by parsing the file and inverting the key/value pairs.
+  This can be used to support loading documents extracted using Apollo's
+  [persistgraphql](https://github.com/apollographql/persistgraphql) tool by
+  parsing the file and inverting the key/value pairs.
 
       provide File.read!("/path/to/extracted_queries.json")
       |> Poison.decode!
@@ -54,24 +59,24 @@ defmodule Absinthe.Plug.DocumentProvider.Compiled do
 
       import unquote(__MODULE__), only: [provide: 2, provide: 1]
 
-      def load(input, _) do
-        do_load(input)
+      def process(request, _) do
+        do_process(request)
       end
 
-      defp do_load(%{params: %{unquote(key_param) => document_key}} = input) do
+      defp do_process(%{params: %{unquote(key_param) => document_key}} = request) do
         case __absinthe_plug_doc__(:compiled, document_key) do
           nil ->
-            {:cont, input}
+            {:cont, request}
           document ->
-            {:halt, %{input | document: document, document_provider_key: document_key}}
+            {:halt, %{request | document: document, document_provider_key: document_key}}
         end
       end
-      defp do_load(input, _) do
-        {:cont, input}
+      defp do_process(request, _) do
+        {:cont, request}
       end
 
       @doc """
-      Determine the remaining pipeline for an input with a pre-compiled
+      Determine the remaining pipeline for an request with a pre-compiled
       document.
 
       Usually this can be changed simply by setting `@compilation_pipeline` in
