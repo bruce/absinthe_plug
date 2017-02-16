@@ -4,7 +4,7 @@ defmodule Absinthe.Plug do
 
   ## Usage
 
-  Basic Usage:
+  In your router:
 
       plug Plug.Parsers,
         parsers: [:urlencoded, :multipart, :json, Absinthe.Plug.Parser],
